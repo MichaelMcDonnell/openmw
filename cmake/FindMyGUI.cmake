@@ -81,11 +81,9 @@ ELSE (WIN32) #Unix
                 SET(MYGUI_INCLUDE_DIRS ${MYGUI_INCLUDE_DIRS})
                 SET(MYGUI_LIB_DIR ${MYGUI_LIBDIR})
                 SET(MYGUI_LIBRARIES ${MYGUI_LIBRARIES} CACHE STRING "")
-                SET(MYGUI_PLATFORM_LIBRARIES "MyGUI.OgrePlatform")
             ELSE (MYGUI_INCLUDE_DIRS)
                 FIND_PATH(MYGUI_INCLUDE_DIRS MyGUI.h PATHS /usr/local/include /usr/include PATH_SUFFIXES MyGUI MYGUI)
                 FIND_LIBRARY(MYGUI_LIBRARIES myguistatic PATHS /usr/lib /usr/local/lib)
-                SET(MYGUI_PLATFORM_LIBRARIES "MyGUI.OgrePlatform")
                 SET(MYGUI_LIB_DIR ${MYGUI_LIBRARIES})
                 STRING(REGEX REPLACE "(.*)/.*" "\\1" MYGUI_LIB_DIR "${MYGUI_LIB_DIR}")
                 STRING(REGEX REPLACE ".*/" "" MYGUI_LIBRARIES "${MYGUI_LIBRARIES}")
@@ -95,7 +93,6 @@ ELSE (WIN32) #Unix
             FIND_PACKAGE(freetype)
             FIND_PATH(MYGUI_INCLUDE_DIRS MyGUI.h PATHS /usr/local/include /usr/include PATH_SUFFIXES MyGUI MYGUI)
             FIND_LIBRARY(MYGUI_LIBRARIES MyGUIEngineStatic PATHS /usr/lib /usr/local/lib)
-            SET(MYGUI_PLATFORM_LIBRARIES "MyGUI.OgrePlatform")
             SET(MYGUI_LIB_DIR ${MYGUI_LIBRARIES})
             STRING(REGEX REPLACE "(.*)/.*" "\\1" MYGUI_LIB_DIR "${MYGUI_LIB_DIR}")
             STRING(REGEX REPLACE ".*/" "" MYGUI_LIBRARIES "${MYGUI_LIBRARIES}")
@@ -106,6 +103,8 @@ ELSE (WIN32) #Unix
         FIND_LIBRARY(MYGUI_LIBRARIES MyGUIEngine PATHS /usr/lib /usr/local/lib)
         STRING(REGEX REPLACE "(.*)/.*" "\\1" MYGUI_LIB_DIR "${MYGUI_LIBRARIES}")
     ENDIF(MYGUI_STATIC)
+
+    SET(MYGUI_PLATFORM_LIBRARIES "MyGUI.OgrePlatform")
 ENDIF (WIN32)
 
 IF (MYGUI_INCLUDE_DIRS AND MYGUI_LIBRARIES)
