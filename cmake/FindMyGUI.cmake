@@ -74,7 +74,6 @@ ELSE (WIN32) #Unix
     CMAKE_MINIMUM_REQUIRED(VERSION 2.4.7 FATAL_ERROR)
     FIND_PACKAGE(PkgConfig)
     IF(MYGUI_STATIC)
-        # don't use pkgconfig on OS X, find freetype & append it's libs to resulting MYGUI_LIBRARIES
         IF (NOT APPLE)
             PKG_SEARCH_MODULE(MYGUI MYGUIStatic MyGUIStatic)
             IF (MYGUI_INCLUDE_DIRS)
@@ -90,12 +89,14 @@ ELSE (WIN32) #Unix
             ENDIF (MYGUI_INCLUDE_DIRS)
         ELSE (NOT APPLE)
             SET(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${MYGUI_DEPENDENCIES_DIR} ${OGRE_DEPENDENCIES_DIR})
-            FIND_PACKAGE(freetype)
             FIND_PATH(MYGUI_INCLUDE_DIRS MyGUI.h PATHS /usr/local/include /usr/include PATH_SUFFIXES MyGUI MYGUI)
             FIND_LIBRARY(MYGUI_LIBRARIES MyGUIEngineStatic PATHS /usr/lib /usr/local/lib)
             SET(MYGUI_LIB_DIR ${MYGUI_LIBRARIES})
             STRING(REGEX REPLACE "(.*)/.*" "\\1" MYGUI_LIB_DIR "${MYGUI_LIB_DIR}")
             STRING(REGEX REPLACE ".*/" "" MYGUI_LIBRARIES "${MYGUI_LIBRARIES}")
+            # freetype is needed on OS X for static builds
+            FIND_PACKAGE(freetype)
+            SET(MYGUI_LIBRARIES ${MYGUI_LIBRARIES} ${FREETYPE_LIBRARIES}) 
         ENDIF (NOT APPLE)
     ELSE(MYGUI_STATIC)
         # Linux shared library
