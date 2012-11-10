@@ -62,6 +62,7 @@ namespace MWInput
       A_ToggleSneak,    //Toggles Sneak, add Push-Sneak later
       A_ToggleWalk, //Toggle Walking/Running
       A_Crouch,
+      A_TogglePOV,
 
       A_QuickSave,
       A_QuickLoad,
@@ -90,16 +91,42 @@ namespace MWInput
 
     std::map<std::string, bool> mControlSwitch;
 
+    float mPreviewPOVDelay;
+    float mTimeIdle;
+
    /* InputImpl Methods */
 public:
     void adjustMouseRegion(int width, int height)
     {
         input.adjustMouseClippingSize(width, height);
     }
+
+    void resetIdleTime()
+    {
+        if (mTimeIdle < 0) {
+            MWBase::Environment::get().getWorld()->toggleVanityMode(false, false);
+        }
+        mTimeIdle = 0.f;
+    }
+
 private:
+
+    void updateIdleTime(float dt)
+    {
+        if (mTimeIdle >= 0.f) {
+            mTimeIdle += dt;
+        }
+        if (mTimeIdle > 30.f && !windows.isGuiMode()) {
+            MWBase::Environment::get().getWorld()->toggleVanityMode(true, false);
+            mTimeIdle = -1.f;
+        }
+    }
+
     void toggleSpell()
     {
         if (windows.isGuiMode()) return;
+
+        resetIdleTime();
 
         MWMechanics::DrawState_ state = player.getDrawState();
         if (state == MWMechanics::DrawState_Weapon || state == MWMechanics::DrawState_Nothing)
@@ -117,6 +144,8 @@ private:
     void toggleWeapon()
     {
         if (windows.isGuiMode()) return;
+
+        resetIdleTime();
 
         MWMechanics::DrawState_ state = player.getDrawState();
         if (state == MWMechanics::DrawState_Spell || state == MWMechanics::DrawState_Nothing)
@@ -197,18 +226,26 @@ private:
 
     void activate()
     {
+        resetIdleTime();
+
         mEngine.activate();
     }
 
     void toggleAutoMove()
     {
         if (windows.isGuiMode()) return;
+        
+        resetIdleTime();
+
         player.setAutoMove (!player.getAutoMove());
     }
 
     void toggleWalking()
     {
         if (windows.isGuiMode()) return;
+
+        resetIdleTime();
+
         player.toggleRunning();
     }
 
@@ -239,7 +276,9 @@ private:
         player(_player),
         windows(_windows),
         mEngine (engine),
-        mDragDrop(false)
+        mDragDrop(false),
+        mPreviewPOVDelay(0.f),
+        mTimeIdle(0.f)
     {
       using namespace OEngine::Input;
       using namespace OEngine::Render;
@@ -340,6 +379,8 @@ private:
 
       poller.bind(A_Jump, KC_E);
       poller.bind(A_Crouch, KC_LCONTROL);
+
+      poller.bind(A_TogglePOV, KC_TAB);
     }
 
     void setDragDrop(bool dragDrop)
@@ -348,7 +389,7 @@ private:
     }
 
     //NOTE: Used to check for movement keys
-    void update ()
+    void update (float duration)
     {
         // Tell OIS to handle all input events
         input.capture();
@@ -400,6 +441,38 @@ private:
                 player.setUpDown (-1);
             else
                 player.setUpDown (0);
+
+            if (mControlSwitch["playerviewswitch"]) {
+                if (poller.isDown(A_TogglePOV)) {
+                    if (mPreviewPOVDelay <= 0.5 &&
+                        (mPreviewPOVDelay += duration) > 0.5)
+                    {
+                        mPreviewPOVDelay = 1.f;
+                        MWBase::Environment::get().getWorld()->togglePreviewMode(true);
+                    }
+                } else {
+                    if (mPreviewPOVDelay > 0.5) {
+                        //disable preview mode
+                        MWBase::Environment::get().getWorld()->togglePreviewMode(false);
+                    } else if (mPreviewPOVDelay > 0.f) {
+                        togglePOV();
+                    }
+                    mPreviewPOVDelay = 0.f;
+                }
+            }
+        }
+        // Idle time update despite of control switches
+        if (poller.isDown(A_MoveLeft) ||
+            poller.isDown(A_MoveRight) ||
+            poller.isDown(A_MoveForward) ||
+            poller.isDown(A_MoveBackward) ||
+            poller.isDown(A_Jump) ||
+            poller.isDown(A_Crouch) ||
+            poller.isDown(A_TogglePOV))
+        {
+            resetIdleTime();
+        } else {
+            updateIdleTime(duration);
         }
     }
 
@@ -415,20 +488,19 @@ private:
 
           // Enable GUI events
           guiEvents->enabled = true;
+          
+          resetIdleTime();
         }
       else
         {
-            // Start mouse-looking again if allowed.
-            if (mControlSwitch["playerlooking"]) {
-                mouse->enable();
-            }
+          mouse->enable();
 
           // Disable GUI events
           guiEvents->enabled = false;
         }
     }
 
-    void toggleControlSwitch(std::string sw, bool value)
+    void toggleControlSwitch(const std::string &sw, bool value)
     {
         if (mControlSwitch[sw] == value) {
             return;
@@ -442,14 +514,17 @@ private:
         } else if (sw == "playerjumping" && !value) {
             /// \fixme maybe crouching at this time
             player.setUpDown(0);
+        } else if (sw == "vanitymode") {
+            MWBase::Environment::get().getWorld()->allowVanityMode(value);
         } else if (sw == "playerlooking") {
-            if (value) {
-                mouse->enable();
-            } else {
-                mouse->disable();
-            }
+            MWBase::Environment::get().getWorld()->togglePlayerLooking(value);
         }
         mControlSwitch[sw] = value;
+    }
+
+    void togglePOV()
+    {
+        MWBase::Environment::get().getWorld()->togglePOV();
     }
 
   };
@@ -470,9 +545,9 @@ private:
     delete impl;
   }
 
-  void MWInputManager::update()
+  void MWInputManager::update(float duration)
   {
-      impl->update();
+      impl->update(duration);
   }
 
   void MWInputManager::setDragDrop(bool dragDrop)
@@ -504,5 +579,10 @@ private:
     void MWInputManager::toggleControlSwitch (const std::string& sw, bool value)
     {
         impl->toggleControlSwitch(sw, value);
+    }
+
+    void MWInputManager::resetIdleTime()
+    {
+        impl->resetIdleTime();
     }
 }
